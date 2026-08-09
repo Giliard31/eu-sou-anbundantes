@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trader MHI Dashboard - IQ Option</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-card: #1e293b;
+      --bg-input: #334155;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-blue: #3b82f6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header e Status */
+    header {
+      background-color: var(--bg-card);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--accent-red);
+      margin-right: 5px;
+    }
+
+    .status-indicator.connected {
+      background-color: var(--accent-green);
+    }
+
+    /* Container Principal */
+    .main-container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 1fr 220px;
+      height: calc(100vh - 55px);
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .main-container.hide-sidebar {
+      grid-template-columns: 0px 1fr;
+    }
+
+    /* Painel Lateral / Configurações */
+    aside {
+      background-color: var(--bg-card);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      overflow-y: auto;
+      transition: all 0.3s ease;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .card {
+      background-color: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+      color: var(--accent-blue);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .form-group {
+      margin-bottom: 10px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background-color: var(--accent-blue);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background-color: #2563eb;
+    }
+
+    .btn-danger {
+      background-color: var(--accent-red);
+      color: #fff;
+    }
+
+    .btn-toggle {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      width: auto;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+    }
+
+    /* Área Central - Monitoramento MHI */
+    main {
+      background-color: var(--bg-card);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .mhi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .quadrante-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg-dark);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      padding: 20px;
+    }
+
+    .candles-grid {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .candle {
+      width: 60px;
+      height: 120px;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 0.8rem;
+      border: 2px solid transparent;
+      position: relative;
+    }
+
+    .candle.green { background-color: rgba(16, 185, 129, 0.2); border-color: var(--accent-green); color: var(--accent-green); }
+    .candle.red { background-color: rgba(239, 68, 68, 0.2); border-color: var(--accent-red); color: var(--accent-red); }
+    .candle.doji { background-color: rgba(148, 163, 184, 0.2); border-color: var(--text-muted); color: var(--text-muted); }
+
+    .candle-timer {
+      position: absolute;
+      top: -25px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Console de Logs */
+    .console-section {
+      grid-column: 1 / -1;
+      background-color: #000;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .console-header {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 3px;
+    }
+
+    .console-logs {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-item { color: #a3e635; }
+    .log-item.error { color: #f87171; }
+    .log-item.info { color: #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h2>IQ Option - Bot MHI Pro</h2>
+    <div class="status-bar">
+      <div>Horário Oficial (SP/Brasília): <strong id="clock">00:00:00</strong></div>
+      <div><span id="status-dot" class="status-indicator"></span><span id="status-text">Desconectado</span></div>
+      <button class="btn-toggle" onclick="toggleSidebar()" id="btn-sidebar">Ocultar Painel</button>
+    </div>
+  </header>
+
+  <!-- Container Geral -->
+  <div class="main-container" id="main-layout">
+    
+    <!-- Painel Lateral / Formulários -->
+    <aside id="sidebar">
+      
+      <!-- Bloco 1: Conexão -->
+      <div class="card" id="auth-card">
+        <h3>Autenticação Corretora</h3>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="email" placeholder="seu@email.com">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="password" placeholder="******">
+        </div>
+        <div class="form-group">
+          <label>Tipo de Conta</label>
+          <select id="account-type">
+            <option value="PRACTICE">Treinamento (Demo)</option>
+            <option value="REAL">Real</option>
+          </select>
+        </div>
+        <button id="btn-connect" class="btn-primary" onclick="conectarCorretora()">Conectar</button>
+      </div>
+
+      <!-- Bloco Desconectar (Oculto Inicialmente) -->
+      <div class="card hidden" id="connected-card">
+        <h3>Sessão Ativa</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-muted);">Conectado com sucesso ao servidor Python (Powering).</p>
+        <button id="btn-disconnect" class="btn-danger" onclick="desconectarCorretora()">Desconectar</button>
+      </div>
+
+      <!-- Bloco 2: Gerenciamento e Mercado -->
+      <div class="card">
+        <h3>Gerenciamento de Mercado</h3>
+        <div class="form-group">
+          <label>Tipo de Mercado</label>
+          <select id="market-type" onchange="atualizarAtivos()">
+            <option value="ALL">Ambos (Normal + OTC)</option>
+            <option value="NORMAL">Normal / Mercado Aberto</option>
+            <option value="OTC">OTC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ativo para Operar</label>
+          <select id="asset-select">
+            <!-- Preenchido via JavaScript -->
+          </select>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Área Principal de Gráficos e Quadrantes MHI -->
+    <main>
+      <div class="mhi-header">
+        <h3>Monitoramento do Quadrante ao Vivo (M1 / MHI)</h3>
+        <div>Ativo Atual: <strong id="current-asset-display" style="color: var(--accent-blue);">EUR/USD</strong></div>
+      </div>
+
+      <div class="quadrante-container">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Quadrante MHI (Entrada exata aos 00s na vela de decisão)</p>
+        <div class="candles-grid">
+          <div class="candle green">
+            <span class="candle-timer">Vela 1</span>
+            VERDE
+          </div>
+          <div class="candle red">
+            <span class="candle-timer">Vela 2</span>
+            VERMELHA
+          </div>
+          <div class="candle green">
+            <span class="candle-timer">Vela 3</span>
+            VERDE
+          </div>
+          <div class="candle doji">
+            <span class="candle-timer">Vela 4</span>
+            DOJI
+          </div>
+          <div class="candle green" style="border: 2px dashed #3b82f6;">
+            <span class="candle-timer" style="color: var(--accent-blue); font-weight: bold;">Entrada (00s)</span>
+            SINAL
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Console Terminal -->
+    <section class="console-section">
+      <div class="console-header">Console de Execução Back-end (Python Log Output)</div>
+      <div class="console-logs" id="console-logs">
+        <div class="log-item info">[Sistema] Aguardando comando de conexão...</div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // --- GERENCIAMENTO DE ATIVOS ---
+    const ativos = {
+      NORMAL: ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/CAD"],
+      OTC: ["EUR/USD-OTC", "GBP/USD-OTC", "USD/JPY-OTC", "USD/CHF-OTC"]
+    };
+
+    function atualizarAtivos() {
+      const type = document.getElementById("market-type").value;
+      const select = document.getElementById("asset-select");
+      select.innerHTML = "";
+
+      let lista = [];
+      if(type === "NORMAL") lista = ativos.NORMAL;
+      else if(type === "OTC") lista = ativos.OTC;
+      else lista = [...ativos.NORMAL, ...ativos.OTC];
+
+      lista.forEach(ativo => {
+        const option = document.createElement("option");
+        option.value = ativo;
+        option.textContent = ativo;
+        select.appendChild(option);
+      });
+      
+      document.getElementById("current-asset-display").innerText = select.value || "---";
+    }
+
+    document.getElementById("asset-select").addEventListener("change", (e) => {
+      document.getElementById("current-asset-display").innerText = e.target.value;
+    });
+
+    // --- RELÓGIO AJUSTADO (SÃO PAULO / BRASÍLIA) ---
+    function iniciarRelogioAjustado() {
+      setInterval(() => {
+        const now = new Date();
+        // Força fuso horário de São Paulo (UTC-3)
+        const options = { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        const timeString = new Intl.DateTimeFormat('pt-BR', options).format(now);
+        document.getElementById("clock").innerText = timeString;
+
+        // Gatilho visual dos 00s (MHI)
+        const segundos = now.getSeconds();
+        if(segundos === 0) {
+          logConsole("[MHI Trigger] Segundo 00 atingido! Verificando envio do sinal ao Python...", "info");
+        }
+      }, 1000);
+    }
+
+    // --- CONSOLE DE LOGS ---
+    function logConsole(mensagem, tipo = "") {
+      const consoleBox = document.getElementById("console-logs");
+      const log = document.createElement("div");
+      log.className = `log-item ${tipo}`;
+      
+      const time = new Date().toLocaleTimeString();
+      log.innerText = `[${time}] ${mensagem}`;
+      
+      consoleBox.appendChild(log);
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    // --- AUTENTICAÇÃO E OCULTAÇÃO DA ABA ---
+    function conectarCorretora() {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      const btn = document.getElementById("btn-connect");
+
+      if(!email || !pass) {
+        alert("Preencha e-mail e senha!");
+        return;
+      }
+
+      btn.innerText = "Conectando...";
+      btn.disabled = true;
+      logConsole("Enviando requisição de login para o servidor Python...", "info");
+
+      // Simulação da conexão com o Back-end
+      setTimeout(() => {
+        btn.innerText = "Conectar";
+        btn.disabled = false;
+        
+        // Atualiza Status Visual
+        document.getElementById("status-dot").classList.add("connected");
+        document.getElementById("status-text").innerText = "Conectado";
+        
+        // Alterna os cards de Conectar/Desconectar
+        document.getElementById("auth-card").classList.add("hidden");
+        document.getElementById("connected-card").classList.remove("hidden");
+
+        logConsole("Autenticado com sucesso na IQ Option!", "log-item");
+
+        // Oculta a aba lateral após conectar para liberar espaço
+        toggleSidebar();
+      }, 2000);
+    }
+
+    function desconectarCorretora() {
+      document.getElementById("status-dot").classList.remove("connected");
+      document.getElementById("status-text").innerText = "Desconectado";
+      
+      document.getElementById("auth-card").classList.remove("hidden");
+      document.getElementById("connected-card").classList.add("hidden");
+      
+      logConsole("Sessão encerrada com a corretora.", "error");
+    }
+
+    function toggleSidebar() {
+      const layout = document.getElementById("main-layout");
+      const sidebar = document.getElementById("sidebar");
+      const btn = document.getElementById("btn-sidebar");
+
+      if (sidebar.classList.contains("hidden")) {
+        sidebar.classList.remove("hidden");
+        layout.classList.remove("hide-sidebar");
+        btn.innerText = "Ocultar Painel";
+      } else {
+        sidebar.classList.add("hidden");
+        layout.classList.add("hide-sidebar");
+        btn.innerText = "Mostrar Painel";
+      }
+    }
+
+    // Inicialização
+    window.onload = () => {
+      atualizarAtivos();
+      iniciarRelogioAjustado();
+      logConsole("Interface inicializada. Pronta para conexão via WebSocket.", "info");
+    };
+  </script>
+</body>
+</html>
