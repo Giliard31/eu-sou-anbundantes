@@ -33,7 +33,6 @@
       overflow: hidden;
     }
 
-    /* Header e Status */
     header {
       background-color: var(--bg-card);
       padding: 12px 20px;
@@ -63,7 +62,6 @@
       background-color: var(--accent-green);
     }
 
-    /* Container Principal */
     .main-container {
       display: grid;
       grid-template-columns: 320px 1fr;
@@ -77,7 +75,6 @@
       grid-template-columns: 0px 1fr;
     }
 
-    /* Painel Lateral / Configurações */
     aside {
       background-color: var(--bg-card);
       border-radius: 8px;
@@ -104,8 +101,6 @@
       font-size: 1rem;
       margin-bottom: 10px;
       color: var(--accent-blue);
-      display: flex;
-      justify-content: space-between;
     }
 
     .form-group {
@@ -139,19 +134,9 @@
       transition: background 0.2s;
     }
 
-    .btn-primary {
-      background-color: var(--accent-blue);
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background-color: #2563eb;
-    }
-
-    .btn-danger {
-      background-color: var(--accent-red);
-      color: #fff;
-    }
+    .btn-primary { background-color: var(--accent-blue); color: #fff; }
+    .btn-primary:hover { background-color: #2563eb; }
+    .btn-danger { background-color: var(--accent-red); color: #fff; }
 
     .btn-toggle {
       background: transparent;
@@ -162,7 +147,6 @@
       font-size: 0.8rem;
     }
 
-    /* Área Central - Monitoramento MHI */
     main {
       background-color: var(--bg-card);
       border-radius: 8px;
@@ -206,13 +190,12 @@
       align-items: center;
       font-weight: bold;
       font-size: 0.8rem;
-      border: 2px solid transparent;
       position: relative;
     }
 
-    .candle.green { background-color: rgba(16, 185, 129, 0.2); border-color: var(--accent-green); color: var(--accent-green); }
-    .candle.red { background-color: rgba(239, 68, 68, 0.2); border-color: var(--accent-red); color: var(--accent-red); }
-    .candle.doji { background-color: rgba(148, 163, 184, 0.2); border-color: var(--text-muted); color: var(--text-muted); }
+    .candle.green { background-color: rgba(16, 185, 129, 0.2); border: 2px solid var(--accent-green); color: var(--accent-green); }
+    .candle.red { background-color: rgba(239, 68, 68, 0.2); border: 2px solid var(--accent-red); color: var(--accent-red); }
+    .candle.doji { background-color: rgba(148, 163, 184, 0.2); border: 2px solid var(--text-muted); color: var(--text-muted); }
 
     .candle-timer {
       position: absolute;
@@ -221,7 +204,6 @@
       color: var(--text-muted);
     }
 
-    /* Console de Logs */
     .console-section {
       grid-column: 1 / -1;
       background-color: #000;
@@ -257,7 +239,6 @@
 </head>
 <body>
 
-  <!-- Header -->
   <header>
     <h2>IQ Option - Bot MHI Pro</h2>
     <div class="status-bar">
@@ -267,13 +248,19 @@
     </div>
   </header>
 
-  <!-- Container Geral -->
   <div class="main-container" id="main-layout">
-    
-    <!-- Painel Lateral / Formulários -->
     <aside id="sidebar">
       
-      <!-- Bloco 1: Conexão -->
+      <!-- Endereço do Python Server -->
+      <div class="card">
+        <h3>Servidor Python</h3>
+        <div class="form-group">
+          <label>URL WebSocket do Python</label>
+          <input type="text" id="ws-url" value="ws://localhost:8000/ws" placeholder="wss://seu-app.onrender.com/ws">
+        </div>
+      </div>
+
+      <!-- Autenticação -->
       <div class="card" id="auth-card">
         <h3>Autenticação Corretora</h3>
         <div class="form-group">
@@ -294,14 +281,12 @@
         <button id="btn-connect" class="btn-primary" onclick="conectarCorretora()">Conectar</button>
       </div>
 
-      <!-- Bloco Desconectar (Oculto Inicialmente) -->
       <div class="card hidden" id="connected-card">
         <h3>Sessão Ativa</h3>
-        <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-muted);">Conectado com sucesso ao servidor Python (Powering).</p>
         <button id="btn-disconnect" class="btn-danger" onclick="desconectarCorretora()">Desconectar</button>
       </div>
 
-      <!-- Bloco 2: Gerenciamento e Mercado -->
+      <!-- Mercado -->
       <div class="card">
         <h3>Gerenciamento de Mercado</h3>
         <div class="form-group">
@@ -314,63 +299,56 @@
         </div>
         <div class="form-group">
           <label>Ativo para Operar</label>
-          <select id="asset-select">
-            <!-- Preenchido via JavaScript -->
+          <select id="asset-select" onchange="alterarAtivoServidor()">
           </select>
         </div>
       </div>
 
     </aside>
 
-    <!-- Área Principal de Gráficos e Quadrantes MHI -->
     <main>
       <div class="mhi-header">
         <h3>Monitoramento do Quadrante ao Vivo (M1 / MHI)</h3>
-        <div>Ativo Atual: <strong id="current-asset-display" style="color: var(--accent-blue);">EUR/USD</strong></div>
+        <div>Ativo Selecionado: <strong id="current-asset-display" style="color: var(--accent-blue);">EURUSD</strong></div>
       </div>
 
       <div class="quadrante-container">
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Quadrante MHI (Entrada exata aos 00s na vela de decisão)</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Quadrante MHI (Análise M1 com disparo aos 00s)</p>
         <div class="candles-grid">
-          <div class="candle green">
+          <div class="candle green" id="candle-1">
             <span class="candle-timer">Vela 1</span>
-            VERDE
+            <span class="candle-val">--</span>
           </div>
-          <div class="candle red">
+          <div class="candle red" id="candle-2">
             <span class="candle-timer">Vela 2</span>
-            VERMELHA
+            <span class="candle-val">--</span>
           </div>
-          <div class="candle green">
+          <div class="candle green" id="candle-3">
             <span class="candle-timer">Vela 3</span>
-            VERDE
+            <span class="candle-val">--</span>
           </div>
-          <div class="candle doji">
-            <span class="candle-timer">Vela 4</span>
-            DOJI
-          </div>
-          <div class="candle green" style="border: 2px dashed #3b82f6;">
-            <span class="candle-timer" style="color: var(--accent-blue); font-weight: bold;">Entrada (00s)</span>
-            SINAL
+          <div class="candle doji" id="candle-4" style="border: 2px dashed #3b82f6;">
+            <span class="candle-timer" style="color: var(--accent-blue); font-weight: bold;">Sinal 00s</span>
+            <span class="candle-val" id="signal-text">AGUARDANDO</span>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- Console Terminal -->
     <section class="console-section">
-      <div class="console-header">Console de Execução Back-end (Python Log Output)</div>
+      <div class="console-header">Console de Execução Back-end (Python WebSocket Logs)</div>
       <div class="console-logs" id="console-logs">
         <div class="log-item info">[Sistema] Aguardando comando de conexão...</div>
       </div>
     </section>
-
   </div>
 
   <script>
-    // --- GERENCIAMENTO DE ATIVOS ---
+    let ws = null;
+
     const ativos = {
-      NORMAL: ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/CAD"],
-      OTC: ["EUR/USD-OTC", "GBP/USD-OTC", "USD/JPY-OTC", "USD/CHF-OTC"]
+      NORMAL: ["EURUSD", "GBPUSD", "USDJPY", "AUDCAD"],
+      OTC: ["EURUSD-OTC", "GBPUSD-OTC", "USDJPY-OTC", "USDCHF-OTC"]
     };
 
     function atualizarAtivos() {
@@ -378,10 +356,7 @@
       const select = document.getElementById("asset-select");
       select.innerHTML = "";
 
-      let lista = [];
-      if(type === "NORMAL") lista = ativos.NORMAL;
-      else if(type === "OTC") lista = ativos.OTC;
-      else lista = [...ativos.NORMAL, ...ativos.OTC];
+      let lista = (type === "NORMAL") ? ativos.NORMAL : (type === "OTC") ? ativos.OTC : [...ativos.NORMAL, ...ativos.OTC];
 
       lista.forEach(ativo => {
         const option = document.createElement("option");
@@ -390,86 +365,102 @@
         select.appendChild(option);
       });
       
-      document.getElementById("current-asset-display").innerText = select.value || "---";
+      alterarAtivoServidor();
     }
 
-    document.getElementById("asset-select").addEventListener("change", (e) => {
-      document.getElementById("current-asset-display").innerText = e.target.value;
-    });
+    function alterarAtivoServidor() {
+      const selected = document.getElementById("asset-select").value;
+      document.getElementById("current-asset-display").innerText = selected;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "change_asset", asset: selected }));
+      }
+    }
 
-    // --- RELÓGIO AJUSTADO (SÃO PAULO / BRASÍLIA) ---
     function iniciarRelogioAjustado() {
       setInterval(() => {
         const now = new Date();
-        // Força fuso horário de São Paulo (UTC-3)
         const options = { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit', second: '2-digit' };
-        const timeString = new Intl.DateTimeFormat('pt-BR', options).format(now);
-        document.getElementById("clock").innerText = timeString;
-
-        // Gatilho visual dos 00s (MHI)
-        const segundos = now.getSeconds();
-        if(segundos === 0) {
-          logConsole("[MHI Trigger] Segundo 00 atingido! Verificando envio do sinal ao Python...", "info");
-        }
+        document.getElementById("clock").innerText = new Intl.DateTimeFormat('pt-BR', options).format(now);
       }, 1000);
     }
 
-    // --- CONSOLE DE LOGS ---
     function logConsole(mensagem, tipo = "") {
       const consoleBox = document.getElementById("console-logs");
       const log = document.createElement("div");
       log.className = `log-item ${tipo}`;
-      
-      const time = new Date().toLocaleTimeString();
-      log.innerText = `[${time}] ${mensagem}`;
-      
+      log.innerText = `[${new Date().toLocaleTimeString()}] ${mensagem}`;
       consoleBox.appendChild(log);
       consoleBox.scrollTop = consoleBox.scrollHeight;
     }
 
-    // --- AUTENTICAÇÃO E OCULTAÇÃO DA ABA ---
     function conectarCorretora() {
+      const wsUrl = document.getElementById("ws-url").value;
       const email = document.getElementById("email").value;
       const pass = document.getElementById("password").value;
+      const accType = document.getElementById("account-type").value;
       const btn = document.getElementById("btn-connect");
 
-      if(!email || !pass) {
-        alert("Preencha e-mail e senha!");
-        return;
-      }
+      if(!email || !pass) return alert("Preencha e-mail e senha!");
 
       btn.innerText = "Conectando...";
       btn.disabled = true;
-      logConsole("Enviando requisição de login para o servidor Python...", "info");
+      logConsole(`Iniciando WebSocket em ${wsUrl}...`, "info");
 
-      // Simulação da conexão com o Back-end
-      setTimeout(() => {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        logConsole("Conexão WebSocket aberta com sucesso. Enviando dados de Login...", "info");
+        ws.send(JSON.stringify({
+          action: "login",
+          email: email,
+          password: pass,
+          account_type: accType
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "log") {
+          logConsole(data.message, data.message.includes("🔴") ? "error" : "info");
+        } 
+        else if (data.type === "login_result") {
+          btn.innerText = "Conectar";
+          btn.disabled = false;
+
+          if (data.status === "success") {
+            document.getElementById("status-dot").classList.add("connected");
+            document.getElementById("status-text").innerText = "Conectado";
+            document.getElementById("auth-card").classList.add("hidden");
+            document.getElementById("connected-card").classList.remove("hidden");
+            toggleSidebar();
+          } else {
+            alert("Erro de Login: " + data.message);
+          }
+        }
+        else if (data.type === "mhi_update") {
+          document.getElementById("signal-text").innerText = data.signal;
+        }
+      };
+
+      ws.onerror = (err) => {
+        logConsole("Erro na conexão WebSocket. Verifique a URL do Python.", "error");
         btn.innerText = "Conectar";
         btn.disabled = false;
-        
-        // Atualiza Status Visual
-        document.getElementById("status-dot").classList.add("connected");
-        document.getElementById("status-text").innerText = "Conectado";
-        
-        // Alterna os cards de Conectar/Desconectar
-        document.getElementById("auth-card").classList.add("hidden");
-        document.getElementById("connected-card").classList.remove("hidden");
+      };
 
-        logConsole("Autenticado com sucesso na IQ Option!", "log-item");
-
-        // Oculta a aba lateral após conectar para liberar espaço
-        toggleSidebar();
-      }, 2000);
+      ws.onclose = () => {
+        desconectarCorretora();
+      };
     }
 
     function desconectarCorretora() {
+      if(ws) ws.close();
       document.getElementById("status-dot").classList.remove("connected");
       document.getElementById("status-text").innerText = "Desconectado";
-      
       document.getElementById("auth-card").classList.remove("hidden");
       document.getElementById("connected-card").classList.add("hidden");
-      
-      logConsole("Sessão encerrada com a corretora.", "error");
+      logConsole("Desconectado do servidor.", "error");
     }
 
     function toggleSidebar() {
@@ -488,11 +479,9 @@
       }
     }
 
-    // Inicialização
     window.onload = () => {
       atualizarAtivos();
       iniciarRelogioAjustado();
-      logConsole("Interface inicializada. Pronta para conexão via WebSocket.", "info");
     };
   </script>
 </body>
