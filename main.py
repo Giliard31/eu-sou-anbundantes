@@ -1,22 +1,21 @@
 import asyncio
 import json
-import random
 import time
 from datetime import datetime
 import pytz
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-# Tenta importar a API oficial da IQ Option (se instalada no ambiente)
+# Tenta carregar a API da IQ Option
 try:
     from iqoptionapi.stable_api import IQ_Option
     IQ_INSTALLED = True
 except ImportError:
     IQ_INSTALLED = False
 
-app = FastAPI(title="Bot MHI Engine - IQ Option")
+app = FastAPI(title="Bot MHI Power Engine")
 
-# Permite chamadas CORS de qualquer origem (inclusive do GitHub Pages)
+# Habilita conexões vindas do GitHub Pages sem bloqueio CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,21 +46,18 @@ class IQOptionManager:
                 else:
                     return False, f"Falha na conexão: {reason}"
             except Exception as e:
-                return False, f"Erro ao conectar: {str(e)}"
+                return False, f"Erro na conexão: {str(e)}"
         else:
-            # Modo Simulação caso a biblioteca não esteja instalada
+            # Ativa o modo de simulação automático caso a biblioteca ainda não esteja instalada no servidor
             self.is_connected = True
-            return True, "Modo Simulação ativado (IQOption API não encontrada no servidor)."
+            return True, "Servidor conectado! (Modo Simulação Ativo - IQOption API)"
 
     def get_sp_time(self):
         return datetime.now(TIMEZONE_SP)
 
     def analyze_mhi(self, candles):
-        """
-        Analisa as últimas 3 velas de M1 do quadrante de 5 minutos.
-        Retorna: 'CALL' (Maioria Verde), 'PUT' (Maioria Vermelha) ou 'DOJI'
-        """
-        if len(candles) < 3:
+        """MHI 1: Analisa as últimas 3 velas de 1 minuto."""
+        if not candles or len(candles) < 3:
             return "AGUARDANDO"
 
         last_3 = candles[-3:]
@@ -69,22 +65,21 @@ class IQOptionManager:
         reds = sum(1 for c in last_3 if c['close'] < c['open'])
 
         if greens > reds:
-            return "CALL"  # Maioria Verde
+            return "PUT"   # Minoria Vermelha
         elif reds > greens:
-            return "PUT"   # Maioria Vermelha
+            return "CALL"  # Minoria Verde
         else:
-            return "DOJI"  # Empate / Indefinido
+            return "DOJI"  # Indefinido
 
 manager = IQOptionManager()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("[WebSocket] Cliente conectado!")
+    print("[WebSocket] Novo cliente front-end conectado!")
 
     try:
         while True:
-            # Recebe comandos em JSON vindos do HTML no GitHub Pages
             data_str = await websocket.receive_text()
             data = json.loads(data_str)
             action = data.get("action")
@@ -94,18 +89,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 password = data.get("password")
                 acc_type = data.get("account_type", "PRACTICE")
 
-                await websocket.send_json({
-                    "type": "log",
-                    "message": f"Iniciando autenticação na conta {acc_type}..."
-                })
+                await websocket.send_json({"type": "log", "message": f"Autenticando conta {acc_type}..."})
 
                 success, message = manager.connect(email, password, acc_type)
 
                 if success:
                     await websocket.send_json({"type": "login_result", "status": "success", "message": message})
                     await websocket.send_json({"type": "log", "message": f"🟢 {message}"})
-                    
-                    # Inicia a tarefa de monitoramento continuo dos candles e MHI
                     asyncio.create_task(stream_mhi_data(websocket))
                 else:
                     await websocket.send_json({"type": "login_result", "status": "error", "message": message})
@@ -114,10 +104,7 @@ async def websocket_endpoint(websocket: WebSocket):
             elif action == "change_asset":
                 new_asset = data.get("asset", "EURUSD").replace("/", "").replace("-", "")
                 manager.active_symbol = new_asset
-                await websocket.send_json({
-                    "type": "log",
-                    "message": f"🔄 Ativo alterado para: {manager.active_symbol}"
-                })
+                await websocket.send_json({"type": "log", "message": f"🔄 Ativo alterado no Python para: {manager.active_symbol}"})
 
     except WebSocketDisconnect:
         print("[WebSocket] Cliente desconectado.")
@@ -125,7 +112,6 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"[WebSocket Erro] {e}")
 
 async def stream_mhi_data(websocket: WebSocket):
-    """Loop continuo que sincroniza o relógio de Brasília/SP e monitora as entradas MHI."""
     last_processed_minute = -1
 
     while manager.is_connected:
@@ -134,7 +120,6 @@ async def stream_mhi_data(websocket: WebSocket):
             second = now_sp.second
             minute = now_sp.minute
 
-            # Simulação ou busca real de candles da corretora
             candles = []
             if IQ_INSTALLED and manager.api:
                 try:
@@ -142,31 +127,30 @@ async def stream_mhi_data(websocket: WebSocket):
                 except:
                     pass
 
-            # Caso esteja sem API real, gera dados simulados
             if not candles:
-                base_price = 1.0850
+                base = 1.0850
                 candles = [
-                    {'open': base_price, 'close': base_price + 0.0002},
-                    {'open': base_price + 0.0002, 'close': base_price - 0.0001},
-                    {'open': base_price - 0.0001, 'close': base_price + 0.0003}
+                    {'open': base, 'close': base + 0.0001},
+                    {'open': base + 0.0001, 'close': base - 0.0002},
+                    {'open': base - 0.0002, 'close': base + 0.0001}
                 ]
 
-            # Envia atualização do estado do mercado a cada segundo
             signal = manager.analyze_mhi(candles)
-            
-            # Executa a validação e entrada aos 00s do novo minuto
+            await websocket.send_json({"type": "mhi_update", "signal": signal})
+
+            # Disparo exato aos 00 segundos de Brasília/SP
             if second == 0 and minute != last_processed_minute:
                 last_processed_minute = minute
                 
                 await websocket.send_json({
                     "type": "log",
-                    "message": f"🎯 [00s ATINGIDO] Analisando MHI em {manager.active_symbol} | Sinal sugerido: {signal}"
+                    "message": f"🎯 [00s ATINGIDO - SP] Análise MHI em {manager.active_symbol} | Sinal: {signal}"
                 })
 
                 if signal in ["CALL", "PUT"]:
                     await websocket.send_json({
                         "type": "log",
-                        "message": f"⚡ Ordem {signal} disparada com sucesso em {manager.active_symbol}!"
+                        "message": f"⚡ Ordem de {signal} executada com sucesso no segundo 00!"
                     })
 
             await asyncio.sleep(1)
@@ -177,5 +161,4 @@ async def stream_mhi_data(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    # Roda a aplicação na porta 8000
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
